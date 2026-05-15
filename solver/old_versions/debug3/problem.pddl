@@ -1,0 +1,5 @@
+(define (problem isr-instance)
+  (:domain isr)
+  (:init (tokened l1) (free l2) (tokened l3) (free l4) (tokened l5) (free l6) (handfree))
+  (:goal (and (tokened l2) (tokened l4) (tokened l6)))
+)

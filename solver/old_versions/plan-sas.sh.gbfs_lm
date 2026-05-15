@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+
+python3 /solvers/fd/fast-downward.py --plan-file $1 $2 --landmarks lmg="lm_hm(use_orders=False, m=1)" --evaluator "hlm=lmcount(lmg, admissible=True, pref=false)" --search "eager(single(hlm),reopen_closed=False)"
+

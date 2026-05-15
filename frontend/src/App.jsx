@@ -24,16 +24,21 @@ export default function PARISWebapp() {
   const [algoTab, setAlgoTab] = useState("State Model");
   const [nodeCounter, setNodeCounter] = useState(10);
 
-  const loadExample = (ex) => {
-    setExample(ex);
-    setNodes(ex.nodes);
-    setEdges(ex.edges);
-    setStartSet(ex.start);
-    setGoalSet(ex.goal);
-    setPositions(autoLayout(ex.nodes));
-    setSolved(false); setSequence([]); setReachable(null);
-  };
-
+const loadExample = (ex) => {
+  setExample(ex); // Cập nhật cả object example để đồng bộ UI nút bấm
+  setNodes(ex.nodes);
+  setEdges(ex.edges);
+  setStartSet(ex.start);
+  setGoalSet(ex.goal);
+  
+  // QUAN TRỌNG: Cập nhật lại vị trí các node theo dữ liệu mới
+  setPositions(autoLayout(ex.nodes)); 
+  
+  setSolved(false);
+  setReachable(null);
+  setSequence([]);
+};
+  
   const handleToggleNode = (n) => {
     if (editMode !== "select") return;
     if (selectTarget === "start") {
@@ -45,8 +50,8 @@ export default function PARISWebapp() {
   };
 
   const handleAddNode = () => {
-    const n = nodeCounter;
-    setNodeCounter(c => c+1);
+    const maxId = nodes.length > 0 ? Math.max(...nodes) : -1;
+    const n = maxId + 1;
     setNodes(ns => [...ns, n]);
     const angle = Math.random()*2*Math.PI;
     setPositions(p => ({ ...p, [n]: { x: 240 + 100*Math.cos(angle), y: 190 + 100*Math.sin(angle) }}));
@@ -61,16 +66,29 @@ export default function PARISWebapp() {
     setEdges(e => e.filter(([x,y]) => !((x===a&&y===b)||(x===b&&y===a))));
   };
 
-  const handleSolve = () => {
-    setSolving(true);
-    setTimeout(() => {
-      setSolving(false);
-      setSolved(true);
-      setReachable(example.reachable);
-      setSequence(example.sequence);
-    }, 1800);
-  };
-
+  const handleSolve = async () => {
+  setSolving(true);
+  try {
+    const res = await fetch("http://localhost:8000/solve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nodes,
+        edges,
+        start: startSet,
+        goal: goalSet
+      })
+    });
+    const data = await res.json();
+    setReachable(data.reachable);
+    setSequence(data.sequence || []);
+    setSolved(true);
+  } catch (err) {
+    alert("Backend error: " + err.message);
+  } finally {
+    setSolving(false);
+  }
+};
   const startValid = isIndependentSet(startSet, edges);
   const goalValid = isIndependentSet(goalSet, edges);
 

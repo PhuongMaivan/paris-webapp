@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+
+python3 /solvers/fd/fast-downward.py --plan-file $1 $2 --landmarks "lmg=lm_merged([lm_rhw(use_orders=true), lm_hm(use_orders=true, m=1)])" --evaluator "hlm=lmcount(lmg, admissible=true, pref=false, cost_partitioning=suboptimal, greedy=false, reuse_costs=false)" --search "astar(hlm)"
