@@ -20,4 +20,4 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 EXPOSE 8000
 RUN chmod +x /app/solver/run_paris.sh
 # Chạy backend
-CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "10000"]
