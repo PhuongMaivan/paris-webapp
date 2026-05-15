@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 #from solver import run_paris
 from solver.run_paris import run_paris
 app = FastAPI()
@@ -29,25 +32,19 @@ def solve(req: SolveRequest):
 def health():
     return {"status": "ok"}
 
-# --- Thêm đoạn này vào dưới cùng của file main.py ---
 
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
+#----
+# Lấy thư mục gốc (thư mục /app trong Docker)
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Trỏ thẳng vào thư mục dist vừa build
+frontend_dist_path = os.path.join(base_dir, "frontend", "dist")
 
-# Lấy đường dẫn thư mục frontend (nằm cùng cấp với thư mục backend)
-# Trong Docker, cấu trúc là /app/backend và /app/frontend
-current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-frontend_path = os.path.join(current_dir, "frontend")
+# Phục vụ các file tĩnh trong assets (quan trọng để load CSS/JS)
+assets_path = os.path.join(frontend_dist_path, "assets")
+if os.path.exists(assets_path):
+    app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
 
-# 1. Phục vụ các file tĩnh (CSS, JS, v.v.)
-# Nếu bạn có thư mục con bên trong frontend thì dùng dòng này
-app.mount("/static", StaticFiles(directory=frontend_path), name="static")
-
-# 2. Route trả về file index.html khi truy cập trang chủ
-@app.get("/")
-async def read_index():
-    index_file = os.path.join(frontend_path, "index.html")
-    if os.path.exists(index_file):
-        return FileResponse(index_file)
-    return {"error": "Không tìm thấy file index.html trong thư mục frontend"}
+# Route trả về file index.html cho mọi đường dẫn khác
+@app.get("/{rest_of_path:path}")
+async def serve_frontend(rest_of_path: str):
+    return FileResponse(os.path.join(frontend_dist_path, "index.html"))
