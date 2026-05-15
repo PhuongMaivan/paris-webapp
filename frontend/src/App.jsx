@@ -69,7 +69,7 @@ const loadExample = (ex) => {
   const handleSolve = async () => {
   setSolving(true);
   try {
-    const res = await fetch("http://localhost:8000/solve", {
+    const res = await fetch("https://paris-webapp-backend.onrender.com/solve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
