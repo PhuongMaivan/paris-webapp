@@ -3,5 +3,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/paris-webapp/",  // ← tên repo GitHub của bạn
+  // base: "/paris-webapp/",  // ← tên repo GitHub của bạn
+  base: "./",
 }); 

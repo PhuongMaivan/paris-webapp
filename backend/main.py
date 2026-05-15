@@ -23,7 +23,7 @@ class SolveRequest(BaseModel):
     start: List[int]
     goal:  List[int]
 
-# 2. Các API Endpoint (Phải để TRƯỚC phần phục vụ Frontend)
+# 2. Các API Endpoint
 @app.post("/solve")
 def solve(req: SolveRequest):
     if len(req.nodes) > 50:
@@ -34,17 +34,15 @@ def solve(req: SolveRequest):
 def health():
     return {"status": "ok"}
 
-# 3. Cấu hình phục vụ Frontend (Sửa lại đoạn này của bạn)
-# Trong Docker, cấu trúc thư mục thường là: /app/backend/main.py và /app/frontend/dist/
-# base_dir của bạn đang lấy ra /app là đúng
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-frontend_dist_path = os.path.join(base_dir, "frontend", "dist")
+# 3. Cấu hình phục vụ Frontend (Đoạn này đã được tối ưu để không lỗi MIME)
+current_file_path = os.path.abspath(__file__)
+backend_dir = os.path.dirname(current_file_path)
+root_dir = os.path.dirname(backend_dir)
+frontend_dist_path = os.path.join(root_dir, "frontend", "dist")
 
-# Kiểm tra xem folder assets có tồn tại không để tránh lỗi khi khởi động
+# Mount thư mục assets trước để xử lý file tĩnh (.js, .css)
 assets_path = os.path.join(frontend_dist_path, "assets")
-
 if os.path.exists(assets_path):
-    # Mount thư mục assets. Lưu ý: Khi trình duyệt gọi /assets/..., nó sẽ tìm trong folder này.
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
 
 # Route phục vụ trang chủ index.html
@@ -53,12 +51,18 @@ async def serve_index():
     index_file = os.path.join(frontend_dist_path, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
-    return {"error": "Frontend build not found. Check /app/frontend/dist/index.html"}
+    
+    # Debug nếu không thấy file (Sẽ hiện lên web để bạn chụp mình xem)
+    files_in_dist = os.listdir(frontend_dist_path) if os.path.exists(frontend_dist_path) else "Folder dist khong ton tai"
+    return {
+        "error": "Khong thay index.html", 
+        "debug_path": index_file,
+        "files_in_dist": files_in_dist
+    }
 
-# Route bổ trợ cho các link khác (nếu dùng React Router)
+# Route catch-all cho React Router
 @app.get("/{rest_of_path:path}")
 async def serve_frontend(rest_of_path: str):
-    # Nếu đường dẫn không phải là API (không bắt đầu bằng /solve hoặc /health)
     index_file = os.path.join(frontend_dist_path, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
