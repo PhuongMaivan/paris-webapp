@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
-from solver import run_paris
-
+#from solver import run_paris
+from solver.run_paris import run_paris
 app = FastAPI()
 
 app.add_middleware(
