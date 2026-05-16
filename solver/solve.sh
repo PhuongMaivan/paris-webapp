@@ -45,8 +45,8 @@ cd "$(dirname "$0")"
 # 1. Chạy parser tạo problem.pddl vào TMPDIR
 python3 my_parser.py "$COL" "$DAT" "$TMPDIR"
 
-# 2. Dịch PDDL sang SAS
-python3 "$FD" --translate --plan-file "$TMPDIR/output.plan" "$DOMAIN" "$TMPDIR/problem.pddl"
+# 2. Dịch PDDL sang SAS (Gọi trực tiếp file fast-downward.py bằng python3)
+python3 ./fd/fast-downward.py --translate --plan-file "$TMPDIR/output.plan" "$DOMAIN" "$TMPDIR/problem.pddl"
 
 # 3. Giải file SAS
 bash ./run_paris.sh output.sas "$TMPDIR/output.plan"
