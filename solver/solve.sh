@@ -26,28 +26,29 @@ python3 "$FD" \
 python3 "$SOLVER_DIR/my_decode.py" "$COL" "$DAT" "$TMPDIR/output.plan" "$OUT"
 
 rm -rf "$TMPDIR"  '
-#!/bin/bash
-# Tự động nhảy vào thư mục chứa script này
-cd "$(dirname "$0")"
 
+
+#!/usr/bin/bash
 COL=$1
 DAT=$2
 OUT=$3
 
-# Đường dẫn tương đối (Làm việc được cả Windows và Linux)
 FD="./fd/fast-downward.py"
 DOMAIN="./domain.pddl"
 TMPDIR="/tmp/paris_$$"
 mkdir -p "$TMPDIR"
 
+# ==== DÒNG QUAN TRỌNG NHẤT: Ép hệ thống nhảy vào đúng thư mục solver ====
+cd "$(dirname "$0")"
+# =======================================================================
+
 # 1. Chạy parser tạo problem.pddl vào TMPDIR
 python3 my_parser.py "$COL" "$DAT" "$TMPDIR"
 
-# 2. Dịch PDDL sang SAS (Đây là bước tạo file SAS đề tài yêu cầu)
+# 2. Dịch PDDL sang SAS
 python3 "$FD" --translate --plan-file "$TMPDIR/output.plan" "$DOMAIN" "$TMPDIR/problem.pddl"
-# Sau bước này sẽ sinh ra file 'output.sas' ở thư mục hiện tại
 
-# 3. Gọi run_paris.sh để giải file SAS bằng Landmarks
+# 3. Giải file SAS
 bash ./run_paris.sh output.sas "$TMPDIR/output.plan"
 
 # 4. Decode kết quả
