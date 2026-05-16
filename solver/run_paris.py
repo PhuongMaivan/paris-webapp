@@ -30,20 +30,27 @@ def run_paris(nodes, edges, start, goal):
         goal_str = " ".join(map(str, [int(n) for n in goal]))
         f.write(f"{goal_str}\n")
 
-    # ---- BƯỚC 3: Chạy script điều phối ----
+   # ---- BƯỚC 3: Chạy script điều phối ----
     result = subprocess.run(
         ["bash", script_total_path, col_file, dat_file, output_file], 
         capture_output=True, text=True
     )
     
-    if result.returncode != 0:
-        return {"error": f"Script Error: {result.stderr}"}
+    # ---- BƯỚC 4: Chẩn đoán lỗi tối cao ----
+    # Gom tất cả nhật ký hệ thống lại để xem dòng nào trong solve.sh bị sập
+    debug_log = (
+        f"--- CONSOLE LOG (STDOUT) ---\n{result.stdout}\n\n"
+        f"--- ERROR LOG (STDERR) ---\n{result.stderr}\n\n"
+    )
 
-    # ---- BƯỚC 4: Đọc kết quả giải từ file final_output.txt ----
+    # Nếu tìm thấy file kết quả decode thành công và có dữ liệu
     if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
         with open(output_file, "r") as f:
             content = f.read().strip()
+            # Nếu nội dung file output chứa báo lỗi kết quả rỗng của bộ giải
+            if "UNREACHABLE" in content or not content:
+                return {"result": debug_log + f"--- DECODE OUTPUT ---\n{content}"}
             return {"result": content}
                 
-    # Nếu không có file output, trả về kết quả thô từ terminal (chữ WELCOME hoặc log hành trình)
-    return {"result": result.stdout.strip() if result.stdout else "No plan found."}
+    # Nếu không tìm thấy file output, chứng tỏ luồng dịch dịch/giải đã bị gãy ở giữa
+    return {"result": debug_log + "TRẠNG THÁI: Thất bại - Không sinh được file final_output.txt"}
