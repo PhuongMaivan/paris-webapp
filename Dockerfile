@@ -1,23 +1,37 @@
-FROM python:3.10-slim
-
-# Cài đặt công cụ biên dịch
-RUN apt-get update && apt-get install -y \
-    g++ make cmake git \
-    && rm -rf /var/lib/apt/lists/*
+# ==========================================
+# GIAI ĐOẠN 1: BUILDER (Dùng bản full để biên dịch C++)
+# ==========================================
+FROM python:3.10 AS builder
 
 WORKDIR /app
 COPY . .
 
-# Biên dịch Fast Downward
+# Cài đặt các công cụ biên dịch thiết yếu
+RUN apt-get update && apt-get install -y g++ make cmake git
+
+# Thực hiện biên dịch Fast Downward thành file chạy
 WORKDIR /app/solver/fd
 RUN python3 build.py
 
-# Cài đặt thư viện cho Backend
+# ==========================================
+# GIAI ĐOẠN 2: RUNTIME (Chạy ứng dụng chính thức)
+# ==========================================
+FROM python:3.10 AS runtime
+
 WORKDIR /app
+
+# Copy toàn bộ dữ liệu đã được build từ giai đoạn builder sang
+COPY --from=builder /app /app
+
+# Cài đặt các thư viện Python cho Backend FastAPI/Uvicorn
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# Render dùng cổng 10000 mặc định hoặc bạn có thể config 8000
-EXPOSE 8000
+# Cấp quyền thực thi cho cả 2 file script shell trong thư mục solver
+RUN chmod +x /app/solver/solve.sh
 RUN chmod +x /app/solver/run_paris.sh
-# Chạy backend
+
+# Cổng mở của ứng dụng
+EXPOSE 10000
+
+# Chạy Backend chính thức từ thư mục gốc /app
 CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "10000"]

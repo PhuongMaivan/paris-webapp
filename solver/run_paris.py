@@ -6,7 +6,7 @@ def run_paris(nodes, edges, start, goal):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
     # Tên file script tổng điều phối của bạn (Hãy đổi đúng tên file .sh tổng đó)
-    script_total_path = os.path.join(current_dir, "solver.sh") 
+    script_total_path = os.path.join(current_dir, "solve.sh") 
     
     col_file = os.path.join(current_dir, "graph.col")
     dat_file = os.path.join(current_dir, "config.dat")
