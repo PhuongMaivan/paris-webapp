@@ -33,26 +33,24 @@ COL=$1
 DAT=$2
 OUT=$3
 
+cd "$(dirname "$0")"
+
 FD="./fd/fast-downward.py"
 DOMAIN="./domain.pddl"
 TMPDIR="/tmp/paris_$$"
 mkdir -p "$TMPDIR"
 
-# ==== DÒNG QUAN TRỌNG NHẤT: Ép hệ thống nhảy vào đúng thư mục solver ====
-cd "$(dirname "$0")"
-# =======================================================================
-
-# 1. Chạy parser tạo problem.pddl vào TMPDIR
+# 1. Chạy parser tạo problem.pddl
 python3 my_parser.py "$COL" "$DAT" "$TMPDIR"
 
-# 2. Dịch PDDL sang SAS (Gọi trực tiếp file fast-downward.py bằng python3)
-python3 ./fd/fast-downward.py --translate --plan-file "$TMPDIR/output.plan" "$DOMAIN" "$TMPDIR/problem.pddl"
+# 2. Dịch PDDL sang SAS
+python3 "$FD" --translate --plan-file "$TMPDIR/output.plan" "$DOMAIN" "$TMPDIR/problem.pddl"
 
-# 3. Giải file SAS
+# 3. Chạy bộ giải chính thức
 bash ./run_paris.sh output.sas "$TMPDIR/output.plan"
 
 # 4. Decode kết quả
 python3 my_decode.py "$COL" "$DAT" "$TMPDIR/output.plan" "$OUT"
 
-# Dọn dẹp
-rm -rf "$TMPDIR" output.sas
+# TẠM THỜI KHÔNG XÓA GÌ CẢ ĐỂ PHỤC VỤ GIÁN ĐIỆP BẮT LỖI
+# rm -rf "$TMPDIR" output.sas
