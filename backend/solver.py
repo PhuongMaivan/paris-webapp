@@ -79,14 +79,14 @@ def run_paris(nodes, edges, start, goal, timeout=30):
         return {"reachable": False, "error": str(e)} """
 
 
-import subprocess, os, hashlib, json
+import subprocess
+import os
+import hashlib
+import json
 
-# --- SỬA TẠI ĐÂY ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Lấy đường dẫn solver bằng cách đi ngược ra thư mục gốc
 SOLVER_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "solver"))
 SOLVE_SH   = os.path.join(SOLVER_DIR, "solve.sh")
-# -------------------
 
 def get_cache_key(nodes, edges, start, goal):
     data = json.dumps({
@@ -98,65 +98,56 @@ def get_cache_key(nodes, edges, start, goal):
     return hashlib.md5(data.encode()).hexdigest()
 
 def write_col(filepath, nodes, edges):
-    with open(filepath, "w") as f:
-        # Giữ nguyên len(nodes) và len(edges)
+    with open(filepath, "w", newline='\n') as f:
         f.write(f"p edge {len(nodes)} {len(edges)}\n")
-        for a, b in edges:
-            # XÓA +1: Để nguyên a, b
-            f.write(f"e {a} {b}\n")
+        for edge in edges:
+            f.write(f"e {int(edge[0])} {int(edge[1])}\n")
 
 def write_dat(filepath, start, goal):
-    with open(filepath, "w") as f:
-        # XÓA +1: Để nguyên n
-        f.write(" ".join(str(n) for n in start) + "\n")
-        f.write(" ".join(str(n) for n in goal) + "\n")
-
-# Trong solver.py (Backend FastAPI)
+    with open(filepath, "w", newline='\n') as f:
+        f.write(" ".join(str(int(n)) for n in start) + "\n")
+        f.write(" ".join(str(int(n)) for n in goal) + "\n")
 
 def read_out(filepath):
-    if not os.path.exists(filepath):
+    if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
         return {"reachable": False, "sequence": []}
-    with open(filepath) as f:
-        lines = [l.strip() for l in f.readlines() if l.strip()]
+        
+    with open(filepath, "r") as f:
+        lines = [l.replace('\r', '').strip() for l in f.readlines() if l.strip()]
     
-    if not lines or lines[0].upper() == "NO":
+    if not lines or lines[0].upper() == "NO" or "UNREACHABLE" in lines[0].upper():
         return {"reachable": False, "sequence": []}
 
     sequence = []
-    for line in lines[1:]:
-        # Lấy nguyên số từ file .out (0, 2, 1, 3...)
+    start_idx = 1 if lines[0].upper() == "YES" else 0
+    for line in lines[start_idx:]:
         state = [int(x) for x in line.split() if x.isdigit()]
-        sequence.append(state)
+        if state:
+            sequence.append(state)
     
     return {"reachable": True, "sequence": sequence}
 
 def run_paris(nodes, edges, start, goal, timeout=30):
-    # Tạo key để không bị trùng file khi nhiều người dùng cùng lúc
     key = get_cache_key(nodes, edges, start, goal)
-    
-    # Tạo đường dẫn file tạm
     col_path = f"/tmp/{key}.col"
     dat_path = f"/tmp/{key}.dat"
     out_path = f"/tmp/{key}.out"
     
-    # Ghi dữ liệu ra file (Dùng các hàm đã sửa ở trên)
     write_col(col_path, nodes, edges)
     write_dat(dat_path, start, goal)
 
     try:
-        # Log để kiểm tra trong Terminal
-        print(f"DEBUG - Running Solver for {len(nodes)} nodes")
-        
-        # Gọi solve.sh với 3 tham số: .col .dat và file .out kết quả
+        try:
+            subprocess.run(["chmod", "+x", SOLVE_SH], check=False)
+        except Exception:
+            pass
+
         subprocess.run(
             ["bash", SOLVE_SH, col_path, dat_path, out_path], 
             timeout=timeout, 
-            check=False # Để nó không văng lỗi khi vô nghiệm (Exit code 12)
+            capture_output=True, text=True,
+            cwd=SOLVER_DIR
         )
-        
-        # Đọc kết quả từ file .out
         return read_out(out_path)
-        
     except Exception as e:
-        print(f"ERROR: {str(e)}")
-        return {"reachable": False, "error": str(e)}
+        return {"reachable": False, "error": str(e), "sequence": []}
