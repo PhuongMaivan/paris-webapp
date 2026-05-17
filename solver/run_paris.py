@@ -9,47 +9,37 @@ def run_paris(nodes, edges, start, goal):
     dat_file = os.path.join(current_dir, "config.dat")
     output_file = os.path.join(current_dir, "final_output.txt")
 
-    # Trước khi chạy, xóa file output cũ nếu có để tránh nhận nhầm kết quả cũ
-    if os.path.exists(output_file):
-        os.remove(output_file)
-
-    # ---- Ghi file graph.col ----
-    with open(col_file, "w") as f:
+    # ---- BƯỚC 1: Ghi file graph.col chuẩn định dạng DIMACS ----
+    # Sử dụng newline='\n' để ép ghi theo chuẩn Linux, không dính \r
+    with open(col_file, "w", newline='\n') as f:
         f.write(f"p edge {len(nodes)} {len(edges)}\n")
         for edge in edges:
-            f.write(f"e {edge[0]} {edge[1]}\n")
+            f.write(f"e {int(edge[0])} {int(edge[1])}\n")
 
-    # ---- Ghi file config.dat ----
-    with open(dat_file, "w") as f:
-        f.write(" ".join(map(str, start)) + "\n")
-        f.write(" ".join(map(str, goal)) + "\n")
+    # ---- BƯỚC 2: Ghi file config.dat chuẩn (Ép kiểu int và dùng LF) ----
+    with open(dat_file, "w", newline='\n') as f:
+        # Ép chặt dữ liệu thành số nguyên sạch, loại bỏ mọi tạp chất cấu trúc
+        start_vals = [int(n.get('id')) if isinstance(n, dict) else int(n) for n in start]
+        goal_vals = [int(n.get('id')) if isinstance(n, dict) else int(n) for n in goal]
+        
+        f.write(" ".join(map(str, start_vals)) + "\n")
+        f.write(" ".join(map(str, goal_vals)) + "\n")
 
-    # ---- Chạy script điều phối ----
+    # ---- BƯỚC 3: Cấp quyền và chạy solve.sh ----
+    try:
+        subprocess.run(["chmod", "+x", script_total_path], check=True)
+    except Exception:
+        pass
+
     result = subprocess.run(
         ["bash", script_total_path, col_file, dat_file, output_file], 
         capture_output=True, text=True
     )
 
-    # ---- BẮT MA: Trả về Log chi tiết nếu không chạy ra kết quả đúng ----
-    stdout_log = result.stdout if result.stdout else "Không có dữ liệu STDOUT"
-    stderr_log = result.stderr if result.stderr else "Không có dữ liệu STDERR"
-    
-    # Đọc nội dung file output nếu nó được sinh ra
-    output_content = "File final_output.txt không được sinh ra!"
+    # ---- BƯỚC 4: Đọc kết quả ----
     if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
         with open(output_file, "r") as f:
-            output_content = f.read().strip()
-
-    # Nếu kết quả ra UNREACHABLE hoặc không sinh được file, phun hết log Terminal lên Web luôn
-    if "UNREACHABLE" in output_content or "không được sinh ra" in output_content:
-        return {
-            "result": (
-                f"=== HỆ THỐNG TRẢ VỀ: UNREACHABLE ===\n\n"
-                f"--- NỘI DUNG FILE OUTPUT ---\n{output_content}\n\n"
-                f"--- TERMINAL OUTPUT (STDOUT) ---\n{stdout_log}\n\n"
-                f"--- TERMINAL ERROR (STDERR) ---\n{stderr_log}\n"
-            )
-        }
+            # Dùng .strip() để làm sạch mọi ký tự xuống dòng dư thừa
+            return {"result": f.read().strip()}
                 
-    # Nếu thành công thực sự (Có chuỗi hành động)
-    return {"result": output_content}
+    return {"result": f"ERROR LOG:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"}
