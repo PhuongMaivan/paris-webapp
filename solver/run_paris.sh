@@ -1,20 +1,18 @@
 #!/bin/bash
 
-# 1. Đảm bảo script luôn đứng đúng thư mục solver để chạy
+# 1. Chuyển hẳn vào thư mục solver trên Railway
 cd /app/solver
 
-# 2. Khai báo đường dẫn tuyệt đối đến file thực thi của Fast Downward
+# 2. Định nghĩa chính xác file thực thi Fast Downward và tham số truyền vào
 FD_PATH="/app/solver/fd/fast-downward.py"
-
-# 3. Lấy tham số đầu vào ($1 là file .sas) và đầu ra ($2 là file .plan) từ main.py truyền sang
 INPUT_SAS=$1
 OUTPUT_PLAN=$2
 
-# 4. Chạy bộ giải Fast Downward với cấu hình thuật toán của bạn
-# (Sửa lại --search ... đúng theo cấu hình giải thuật toán gốc của bạn)
+# 3. Chạy bộ giải với cấu hình thuật toán chuẩn của bạn
+# (Nếu lệnh gốc của bạn dùng thuật toán khác thuật toán dưới này, hãy đổi lại cho đúng nhé)
 python3 $FD_PATH $INPUT_SAS --search "astar(lmcut())"
 
-# 5. Di chuyển file sas_plan sinh ra mặc định về đúng tên/đường dẫn mà Backend yêu cầu
+# 4. Gom file kết quả 'sas_plan' mặc định đổi tên thành file output.plan cho Backend đọc
 if [ -f "sas_plan" ]; then
     mv sas_plan $OUTPUT_PLAN
 fi
