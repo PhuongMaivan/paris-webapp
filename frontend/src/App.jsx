@@ -69,7 +69,16 @@ const loadExample = (ex) => {
   const handleSolve = async () => {
   setSolving(true);
   try {
-    const res = await fetch("http://localhost:8000/solve", {
+    // 1. Tự động kiểm tra xem có phải đang chạy ở máy local không
+    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    
+    // 2. Nếu là local thì hướng thẳng về cổng backend 8000, nếu là Railway thì tự lấy link mạng công khai
+    const apiUrl = isLocalhost 
+      ? "http://localhost:8000/solve" 
+      : `${window.location.origin}/solve`;
+
+    // 3. Thực hiện gọi API chuẩn xác theo môi trường
+    const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

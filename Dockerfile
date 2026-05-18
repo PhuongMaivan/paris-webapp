@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . .
 
-# 2. Biên dịch trực tiếp Fast Downward trên chính môi trường này (Không lo gãy symlink)
+# 2. Biên dịch trực tiếp Fast Downward trên chính môi trường này
 WORKDIR /app/solver/fd
 RUN python3 build.py
 
@@ -20,8 +20,8 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 RUN chmod +x /app/solver/solve.sh
 RUN chmod +x /app/solver/run_paris.sh
 
-# Render dùng cổng 10000 mặc định
-EXPOSE 10000
+# 5. Khai báo cổng động theo tiêu chuẩn (Thay cho cổng 10000 cũ của Render)
+EXPOSE 8000
 
-# Chạy backend chính thức
-CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 6. Chạy backend chính thức và tự động bắt theo biến môi trường $PORT của Railway
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
