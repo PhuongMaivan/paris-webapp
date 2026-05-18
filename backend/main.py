@@ -34,30 +34,32 @@ def solve(req: SolveRequest):
     if len(req.nodes) > 50:
         return {"error": "Too large. Max 50 nodes."}
     
-    # Định nghĩa chính xác đường dẫn đến file script và các file kết quả trên Linux
-    script_path = os.path.join(root_dir, "solver", "run_paris.sh")
-    sas_file_path = os.path.join(root_dir, "solver", "input.sas")
-    plan_file_path = os.path.join(root_dir, "solver", "output.plan")
+    # Định nghĩa đường dẫn tuyệt đối thẳng từ gốc /app của Container Linux trên Railway
+    script_path = "/app/solver/run_paris.sh"
+    sas_file_path = "/app/solver/input.sas"
+    plan_file_path = "/app/solver/output.plan"
     
-    # Kích hoạt file run_paris.sh bằng lệnh bash thuần của Linux (Không cần import module Python nào cả)
     try:
-        # Truyền 2 tham số: đầu vào ($1) và đầu ra ($2) chuẩn theo cấu trúc file .sh của bạn
+        # Thực thi lệnh với shell=True để Linux nhận diện biến môi trường và quyền thực thi tốt hơn
         subprocess.run(
-            ["bash", script_path, sas_file_path, plan_file_path], 
-            capture_output=True, text=True, check=True
+            f"bash {script_path} {sas_file_path} {plan_file_path}", 
+            shell=True, capture_output=True, text=True, check=True
         )
         
-        # Đọc file kết quả .plan do bộ giải sinh ra và trả về Frontend
         if os.path.exists(plan_file_path):
             with open(plan_file_path, "r") as f:
                 plan_content = f.read()
+            # Nếu file plan trống (Fast Downward chạy lỗi ngầm) thì trả về unreachable
+            if not plan_content.strip():
+                return {"status": "unreachable", "result": "UNREACHABLE — no reconfiguration sequence exists."}
             return {"status": "success", "result": plan_content}
         else:
             return {"status": "unreachable", "result": "UNREACHABLE — no reconfiguration sequence exists."}
             
     except subprocess.CalledProcessError as e:
-        # Nếu Fast Downward trả về lỗi (ví dụ bài toán không có lời giải)
-        return {"status": "unreachable", "result": "UNREACHABLE — no reconfiguration sequence exists."}
+        # Log lỗi ra bảng điều khiển Railway để nếu có lỗi gì mình nhìn thấy ngay
+        print("BỘ GIẢI BÁO LỖI HỆ THỐNG:", e.stderr)
+        return {"status": "unreachable", "result": f"UNREACHABLE — no reconfiguration sequence exists."}
 
 @app.get("/health")
 def health():
