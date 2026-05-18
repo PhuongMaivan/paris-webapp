@@ -1,33 +1,30 @@
-# Sử dụng Python làm base image (chọn phiên bản phù hợp, ví dụ 3.10 hoặc 3.11)
-FROM python:3.10-slim
-
-# Cài đặt các công cụ hệ thống cần thiết cho Fast Downward và bộ giải (g++, make, cmake, bash...)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    g++ \
-    make \
-    cmake \
-    bash \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Sử dụng trực tiếp ảnh Python có sẵn bộ build GCC/G++ (Không cần apt-get install g++ nữa)
+FROM python:3.10-bullseye
 
 # Thiết lập thư mục làm việc trong container
 WORKDIR /app
 
-# Copy file quản lý thư viện Python và cài đặt
+# Khởi tạo môi trường cơ bản
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy file requirements và cài đặt thư viện Python trước để tận dụng cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy toàn bộ mã nguồn dự án vào container (bao gồm backend, solver, và frontend)
+# Copy toàn bộ mã nguồn của dự án (bao gồm backend, solver, frontend/dist) vào container
 COPY . .
 
-# Đảm bảo phân quyền thực thi cho file solve.sh bên trong môi trường Linux Container
+# Phân quyền thực thi cho file solve.sh trên Linux
 RUN chmod +x /app/solver/solve.sh
 
-# Cấu hình biến môi trường để Python không ghi file pyc và log được in ra lập tức
+# Cấu hình log không bị delay
 ENV PYTHONUNBUFFERED=1
 
-# Railway sẽ tự động cấp cổng thông qua biến PORT, mặc định dự phòng là 8080
+# Railway tự động cấp PORT
 EXPOSE 8080
 
-# Lệnh khởi chạy Uvicorn server (gọi trực tiếp file main.py để tự động ăn biến PORT)
+# Chạy backend qua main.py
 CMD ["python", "backend/main.py"]
