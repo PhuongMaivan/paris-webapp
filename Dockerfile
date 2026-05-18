@@ -1,28 +1,33 @@
-FROM python:3.10
+# Sử dụng Python làm base image (chọn phiên bản phù hợp, ví dụ 3.10 hoặc 3.11)
+FROM python:3.10-slim
 
-# 1. Cài đặt các công cụ biên dịch C++ thiết yếu cho Linux
-RUN apt-get update && apt-get install -y \
-    g++ make cmake git \
+# Cài đặt các công cụ hệ thống cần thiết cho Fast Downward và bộ giải (g++, make, cmake, bash...)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++ \
+    make \
+    cmake \
+    bash \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Thiết lập thư mục làm việc trong container
 WORKDIR /app
+
+# Copy file quản lý thư viện Python và cài đặt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy toàn bộ mã nguồn dự án vào container (bao gồm backend, solver, và frontend)
 COPY . .
 
-# 2. Biên dịch trực tiếp Fast Downward trên chính môi trường này
-WORKDIR /app/solver/fd
-RUN python3 build.py
-
-# 3. Cài đặt các thư viện Python cho Backend từ thư mục gốc
-WORKDIR /app
-RUN pip install --no-cache-dir -r backend/requirements.txt
-
-# 4. Cấp quyền thực thi cho cả 2 file script shell
+# Đảm bảo phân quyền thực thi cho file solve.sh bên trong môi trường Linux Container
 RUN chmod +x /app/solver/solve.sh
-RUN chmod +x /app/solver/run_paris.sh
 
-# 5. Chạy Backend bằng cách gọi qua Module (-m), đứng ở vị trí thư mục gốc /app
-# Cách chạy này giúp Python tự hiểu và liên kết hoàn hảo giữa thư mục 'backend' và 'solver'
-CMD python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+# Cấu hình biến môi trường để Python không ghi file pyc và log được in ra lập tức
+ENV PYTHONUNBUFFERED=1
 
-# Cấp quyền đọc/ghi/thực thi tối cao cho thư mục solver
-RUN chmod -R 777 /app/solver
+# Railway sẽ tự động cấp cổng thông qua biến PORT, mặc định dự phòng là 8080
+EXPOSE 8080
+
+# Lệnh khởi chạy Uvicorn server (gọi trực tiếp file main.py để tự động ăn biến PORT)
+CMD ["python", "backend/main.py"]
