@@ -1,2 +1,4 @@
 # Bỏ qua thư mục build của Fast Downward vì nó quá nặng
 solver/fd/builds/
+
+# Trigger Railway Build

@@ -5,7 +5,7 @@ from typing import List
 import os
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from solver.run_paris import run_paris
+from solver import run_paris
 
 app = FastAPI()
 
@@ -66,4 +66,5 @@ async def serve_frontend(rest_of_path: str):
     index_file = os.path.join(frontend_dist_path, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
-    return {"error": "File not found"}
+    return {"error": "File not found"} 
+

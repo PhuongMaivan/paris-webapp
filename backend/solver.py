@@ -1,4 +1,3 @@
-"""
 import subprocess, os, hashlib, json
 from tracemalloc import start
 
@@ -76,78 +75,4 @@ def run_paris(nodes, edges, start, goal, timeout=30):
         
     except Exception as e:
         print(f"ERROR: {str(e)}")
-        return {"reachable": False, "error": str(e)} """
-
-
-import subprocess
-import os
-import hashlib
-import json
-
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-SOLVER_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "solver"))
-SOLVE_SH   = os.path.join(SOLVER_DIR, "solve.sh")
-
-def get_cache_key(nodes, edges, start, goal):
-    data = json.dumps({
-        "nodes": sorted(nodes),
-        "edges": sorted([sorted(e) for e in edges]),
-        "start": sorted(start),
-        "goal":  sorted(goal)
-    }, sort_keys=True)
-    return hashlib.md5(data.encode()).hexdigest()
-
-def write_col(filepath, nodes, edges):
-    with open(filepath, "w", newline='\n') as f:
-        f.write(f"p edge {len(nodes)} {len(edges)}\n")
-        for edge in edges:
-            f.write(f"e {int(edge[0])} {int(edge[1])}\n")
-
-def write_dat(filepath, start, goal):
-    with open(filepath, "w", newline='\n') as f:
-        f.write(" ".join(str(int(n)) for n in start) + "\n")
-        f.write(" ".join(str(int(n)) for n in goal) + "\n")
-
-def read_out(filepath):
-    if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
-        return {"reachable": False, "sequence": []}
-        
-    with open(filepath, "r") as f:
-        lines = [l.replace('\r', '').strip() for l in f.readlines() if l.strip()]
-    
-    if not lines or lines[0].upper() == "NO" or "UNREACHABLE" in lines[0].upper():
-        return {"reachable": False, "sequence": []}
-
-    sequence = []
-    start_idx = 1 if lines[0].upper() == "YES" else 0
-    for line in lines[start_idx:]:
-        state = [int(x) for x in line.split() if x.isdigit()]
-        if state:
-            sequence.append(state)
-    
-    return {"reachable": True, "sequence": sequence}
-
-def run_paris(nodes, edges, start, goal, timeout=30):
-    key = get_cache_key(nodes, edges, start, goal)
-    col_path = f"/tmp/{key}.col"
-    dat_path = f"/tmp/{key}.dat"
-    out_path = f"/tmp/{key}.out"
-    
-    write_col(col_path, nodes, edges)
-    write_dat(dat_path, start, goal)
-
-    try:
-        try:
-            subprocess.run(["chmod", "+x", SOLVE_SH], check=False)
-        except Exception:
-            pass
-
-        subprocess.run(
-            ["bash", SOLVE_SH, col_path, dat_path, out_path], 
-            timeout=timeout, 
-            capture_output=True, text=True,
-            cwd=SOLVER_DIR
-        )
-        return read_out(out_path)
-    except Exception as e:
-        return {"reachable": False, "error": str(e), "sequence": []}
+        return {"reachable": False, "error": str(e)}
