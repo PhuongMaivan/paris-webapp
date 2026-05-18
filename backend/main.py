@@ -22,7 +22,7 @@ class SolveRequest(BaseModel):
     start: List[int]
     goal:  List[int]
 
-# --- HÀM QUAN TRỌNG: Chuyển đổi dữ liệu đồ thị thành file input.sas ---
+# --- HÀM QUAN TRỌNG: Chuyển đổi dữ liệu đồ thị từ Web thành file input.sas ---
 def write_sas_file(req: SolveRequest, filepath: str):
     with open(filepath, "w") as f:
         # Ghi số lượng đỉnh (variables)
@@ -51,26 +51,26 @@ def solve(req: SolveRequest):
     if len(req.nodes) > 50:
         return {"error": "Too large. Max 50 nodes."}
     
-    # Sử dụng đường dẫn tuyệt đối cố định trong Docker của Railway
+    # Định nghĩa chính xác đường dẫn tuyệt đối trong Docker của Railway
     script_path = "/app/solver/run_paris.sh"
     sas_file_path = "/app/solver/input.sas"
     plan_file_path = "/app/solver/output.plan"
     
     try:
-        # Bước 1: Ghi dữ liệu từ Frontend gửi lên vào file input.sas trước
+        # 1. Ghi dữ liệu đồ thị người dùng vừa vẽ vào file input.sas
         write_sas_file(req, sas_file_path)
         
-        # Bước 2: Xóa file plan cũ nếu có để tránh đọc nhầm kết quả cũ
+        # 2. Xóa file kết quả cũ đi nếu có để tránh đọc nhầm
         if os.path.exists(plan_file_path):
             os.remove(plan_file_path)
             
-        # Bước 3: Gọi file shell để chạy Fast Downward giải bài toán
+        # 3. Kích hoạt file shell chạy Fast Downward bằng lệnh bash kèm shell=True
         result = subprocess.run(
             f"bash {script_path} {sas_file_path} {plan_file_path}", 
             shell=True, capture_output=True, text=True, check=True
         )
         
-        # Bước 4: Đọc file output.plan trả kết quả về cho Frontend hiển thị mẫu chuyển động
+        # 4. Đọc file kết quả output.plan trả về Frontend
         if os.path.exists(plan_file_path):
             with open(plan_file_path, "r") as f:
                 plan_content = f.read()
@@ -81,14 +81,15 @@ def solve(req: SolveRequest):
             return {"status": "unreachable", "result": "UNREACHABLE — no reconfiguration sequence exists."}
             
     except subprocess.CalledProcessError as e:
-        print("SOLVER ERROR LOG:", e.stderr)
+        # Nếu bộ giải sập hoặc lỗi đường dẫn, in hẳn log lỗi ra Railway để xem
+        print("LỖI CHẠY BỘ GIẢI:", e.stderr)
         return {"status": "unreachable", "result": "UNREACHABLE — solver error or no sequence exists."}
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# --- ĐOẠN PHỤC VỤ FRONTEND ---
+# --- PHỤC VỤ FILE TĨNH FRONTEND ---
 frontend_dist_path = "/app/frontend/dist"
 
 assets_path = os.path.join(frontend_dist_path, "assets")

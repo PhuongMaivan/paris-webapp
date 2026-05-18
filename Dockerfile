@@ -24,5 +24,5 @@ RUN chmod +x /app/solver/run_paris.sh
 # Cách chạy này giúp Python tự hiểu và liên kết hoàn hảo giữa thư mục 'backend' và 'solver'
 CMD python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 
-# Cấp quyền đọc/ghi/thực thi tối cao cho toàn bộ thư mục solver và bộ giải Fast Downward
-RUN chmod -R 775 /app/solver
+# Cấp quyền đọc/ghi/thực thi tối cao cho thư mục solver
+RUN chmod -R 777 /app/solver
