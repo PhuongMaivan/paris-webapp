@@ -67,37 +67,53 @@ const loadExample = (ex) => {
   };
 
   const handleSolve = async () => {
-  setSolving(true);
-  try {
-    // 1. Tự động kiểm tra xem có phải đang chạy ở máy local không
-    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    setSolving(true);
+    setSolved(false); // Reset trạng thái cũ trước khi giải mới
     
-    // 2. Nếu là local thì hướng thẳng về cổng backend 8000, nếu là Railway thì tự lấy link mạng công khai
-    const apiUrl = isLocalhost 
-      ? "http://localhost:8000/solve" 
-      : `${window.location.origin}/solve`;
+    try {
+      // 1. Tự động nhận diện URL môi trường (Giữ nguyên logic thông minh của bạn)
+      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const apiUrl = isLocalhost 
+        ? "http://localhost:8000/solve" 
+        : `${window.location.origin}/solve`;
 
-    // 3. Thực hiện gọi API chuẩn xác theo môi trường
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nodes,
-        edges,
-        start: startSet,
-        goal: goalSet
-      })
-    });
-    const data = await res.json();
-    setReachable(data.reachable);
-    setSequence(data.sequence || []);
-    setSolved(true);
-  } catch (err) {
-    alert("Backend error: " + err.message);
-  } finally {
-    setSolving(false);
-  }
-};
+      // Đảm bảo dữ liệu danh sách cạnh luôn là các số nguyên chuẩn chỉ
+      const formattedEdges = edges.map(([u, v]) => [Number(u), Number(v)]);
+
+      // 2. Thực hiện gọi API
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nodes: nodes.map(n => Number(n)),
+          edges: formattedEdges,
+          start: startSet.map(n => Number(n)),
+          goal: goalSet.map(n => Number(n))
+        })
+      });
+      
+      const data = await res.json();
+      
+      // 3. ĐỒNG BỘ CHUẨN XÁC VỚI BIẾN CỦA BACKEND FastAPI
+      if (data.status === "success") {
+        setReachable(true);
+        
+        // Chuyển đổi chuỗi văn bản output.plan từ bộ giải thành mảng các bước để SequencePlayer chạy
+        // (Giả định mỗi dòng trong file plan tương ứng với trạng thái một bước di chuyển)
+        const parsedSequence = data.result ? data.result.split("\n").filter(line => line.trim() !== "") : [];
+        setSequence(parsedSequence);
+      } else {
+        setReachable(false);
+        setSequence([]);
+      }
+      
+      setSolved(true);
+    } catch (err) {
+      alert("Backend error: " + err.message);
+    } finally {
+      setSolving(false);
+    }
+  };
   const startValid = isIndependentSet(startSet, edges);
   const goalValid = isIndependentSet(goalSet, edges);
 
