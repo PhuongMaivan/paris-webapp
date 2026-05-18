@@ -1,12 +1,11 @@
-#!/bin/bash
-cd /app/solver
-FD_PATH="/app/solver/fd/fast-downward.py"
-INPUT_SAS=$1
-OUTPUT_PLAN=$2
+#!/usr/bin/bash
 
-# Chạy Fast Downward
-python3 $FD_PATH $INPUT_SAS --search "astar(lmcut())"
+# Cách dùng: ./run_paris.sh input.sas output.plan
+SAS_FILE=$1
+PLAN_FILE=$2
 
-if [ -f "sas_plan" ]; then
-    mv sas_plan $OUTPUT_PLAN
-fi
+python3 /mnt/c/paris-webapp/solver/fd/fast-downward.py \
+  --plan-file $PLAN_FILE $SAS_FILE \
+  --landmarks lmg="lm_hm(use_orders=False, m=1)" \
+  --evaluator "hlm=lmcount(lmg, admissible=True, pref=false)" \
+  --search "eager(single(hlm),reopen_closed=False)"   

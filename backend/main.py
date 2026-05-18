@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 app = FastAPI()
 
+# 1. Cấu hình CORS chuẩn chỉnh cho Railway
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,62 +23,49 @@ class SolveRequest(BaseModel):
     start: List[int]
     goal:  List[int]
 
-def write_sas_file(req: SolveRequest, filepath: str):
-    with open(filepath, "w") as f:
-        f.write(f"{len(req.nodes)}\n")
-        for i in range(len(req.nodes)):
-            f.write(f"node_{i}\n2\n")
-        for val in req.start:
-            f.write(f"{val}\n")
-        f.write(f"{len(req.goal)}\n")
-        for i, val in enumerate(req.goal):
-            f.write(f"{i} {val}\n")
-        f.write(f"{len(req.edges)}\n")
-        for edge in req.edges:
-            f.write(f"{edge[0]} {edge[1]}\n")
+# Tự động tính toán đường dẫn tuyệt đối dựa trên cấu trúc thư mục của Railway (/app)
+current_file_path = os.path.abspath(__file__)
+backend_dir = os.path.dirname(current_file_path)
+root_dir = os.path.dirname(backend_dir)
 
+# 2. API Endpoint giải thuật toán bằng cách gọi trực tiếp file .sh
 @app.post("/solve")
 def solve(req: SolveRequest):
-    print("====== DA NHAN DUOC YEU CAU GIAI TOAN TU FRONTEND ======")
     if len(req.nodes) > 50:
         return {"error": "Too large. Max 50 nodes."}
     
-    script_path = "/app/solver/run_paris.sh"
-    sas_file_path = "/app/solver/input.sas"
-    plan_file_path = "/app/solver/output.plan"
+    # Định nghĩa chính xác đường dẫn đến file script và các file kết quả trên Linux
+    script_path = os.path.join(root_dir, "solver", "run_paris.sh")
+    sas_file_path = os.path.join(root_dir, "solver", "input.sas")
+    plan_file_path = os.path.join(root_dir, "solver", "output.plan")
     
+    # Kích hoạt file run_paris.sh bằng lệnh bash thuần của Linux (Không cần import module Python nào cả)
     try:
-        write_sas_file(req, sas_file_path)
-        
-        if os.path.exists(plan_file_path):
-            os.remove(plan_file_path)
-            
-        print("Dang kich hoat chay file run_paris.sh...")
-        result = subprocess.run(
-            f"bash {script_path} {sas_file_path} {plan_file_path}", 
-            shell=True, capture_output=True, text=True, check=True
+        # Truyền 2 tham số: đầu vào ($1) và đầu ra ($2) chuẩn theo cấu trúc file .sh của bạn
+        subprocess.run(
+            ["bash", script_path, sas_file_path, plan_file_path], 
+            capture_output=True, text=True, check=True
         )
-        print("Bộ giải Fast Downward log:", result.stdout)
         
+        # Đọc file kết quả .plan do bộ giải sinh ra và trả về Frontend
         if os.path.exists(plan_file_path):
             with open(plan_file_path, "r") as f:
                 plan_content = f.read()
-            if not plan_content.strip():
-                return {"status": "unreachable", "result": "UNREACHABLE — no reconfiguration sequence exists."}
             return {"status": "success", "result": plan_content}
         else:
-            print("Loi: Khong tim thay file output.plan sau khi chay!")
             return {"status": "unreachable", "result": "UNREACHABLE — no reconfiguration sequence exists."}
             
     except subprocess.CalledProcessError as e:
-        print("BO GIAI GAP LOI C++:", e.stderr)
-        return {"status": "unreachable", "result": "UNREACHABLE — solver error."}
+        # Nếu Fast Downward trả về lỗi (ví dụ bài toán không có lời giải)
+        return {"status": "unreachable", "result": "UNREACHABLE — no reconfiguration sequence exists."}
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-frontend_dist_path = "/app/frontend/dist"
+# 3. Cấu hình phục vụ Frontend tĩnh
+frontend_dist_path = os.path.join(root_dir, "frontend", "dist")
+
 assets_path = os.path.join(frontend_dist_path, "assets")
 if os.path.exists(assets_path):
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
@@ -87,7 +75,8 @@ async def serve_index():
     index_file = os.path.join(frontend_dist_path, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
-    return {"error": "Khong thay index.html"}
+    files_in_dist = os.listdir(frontend_dist_path) if os.path.exists(frontend_dist_path) else "Folder dist khong ton tai"
+    return {"error": "Khong thay index.html", "debug_path": index_file, "files_in_dist": files_in_dist}
 
 @app.get("/{rest_of_path:path}")
 async def serve_frontend(rest_of_path: str):
