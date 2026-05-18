@@ -74,7 +74,7 @@ const loadExample = (ex) => {
     
     // 2. Nếu là local thì hướng thẳng về cổng backend 8000, nếu là Railway thì tự lấy link mạng công khai
     const apiUrl = isLocalhost 
-      ? "http://localhost:8000/solve" 
+      ? "http://localhost:8080/solve" 
       : `${window.location.origin}/solve`;
 
     // 3. Thực hiện gọi API chuẩn xác theo môi trường
