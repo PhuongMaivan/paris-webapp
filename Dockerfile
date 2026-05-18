@@ -1,30 +1,28 @@
-# Sử dụng trực tiếp ảnh Python có sẵn bộ build GCC/G++ (Không cần apt-get install g++ nữa)
-FROM python:3.10-bullseye
+FROM python:3.10
 
-# Thiết lập thư mục làm việc trong container
-WORKDIR /app
-
-# Khởi tạo môi trường cơ bản
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash \
-    cmake \
+# 1. Cài đặt các công cụ biên dịch C++ thiết yếu cho Linux
+RUN apt-get update && apt-get install -y \
+    g++ make cmake git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy file requirements và cài đặt thư viện Python trước để tận dụng cache
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy toàn bộ mã nguồn của dự án (bao gồm backend, solver, frontend/dist) vào container
+WORKDIR /app
 COPY . .
 
-# Phân quyền thực thi cho file solve.sh trên Linux
+# 2. Biên dịch trực tiếp Fast Downward trên chính môi trường này
+WORKDIR /app/solver/fd
+RUN python3 build.py
+
+# 3. Cài đặt các thư viện Python cho Backend từ thư mục gốc
+WORKDIR /app
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# 4. Cấp quyền thực thi cho cả 2 file script shell
 RUN chmod +x /app/solver/solve.sh
+RUN chmod +x /app/solver/run_paris.sh
 
-# Cấu hình log không bị delay
-ENV PYTHONUNBUFFERED=1
+# 5. Chạy Backend bằng cách gọi qua Module (-m), đứng ở vị trí thư mục gốc /app
+# Cách chạy này giúp Python tự hiểu và liên kết hoàn hảo giữa thư mục 'backend' và 'solver'
+CMD python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 
-# Railway tự động cấp PORT
-EXPOSE 8080
-
-# Chạy backend qua main.py
-CMD ["python", "backend/main.py"]
+# Cấp quyền đọc/ghi/thực thi tối cao cho thư mục solver
+RUN chmod -R 777 /app/solver
