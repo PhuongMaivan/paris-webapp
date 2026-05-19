@@ -1,28 +1,33 @@
+# Sử dụng ảnh Python tiêu chuẩn
 FROM python:3.10
 
-# 1. Cài đặt các công cụ biên dịch C++ thiết yếu cho Linux
-RUN apt-get update && apt-get install -y \
-    g++ make cmake git \
+# Cài đặt các công cụ build C++ bắt buộc cho Fast Downward (g++, cmake, make)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++ \
+    make \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
+# Thiết lập thư mục làm việc trong container
 WORKDIR /app
+
+# Copy file requirements và cài đặt thư viện Python trước
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy toàn bộ mã nguồn dự án vào container
 COPY . .
 
-# 2. Biên dịch trực tiếp Fast Downward trên chính môi trường này
-WORKDIR /app/solver/fd
-RUN python3 build.py
+# --- BƯỚC QUAN TRỌNG: Biên dịch bộ giải Fast Downward cho Linux ---
+# Lệnh build chuẩn của Fast Downward (nếu thư mục fd của bác dùng bản chuẩn)
+RUN cd /app/solver/fd && ./build.py
 
-# 3. Cài đặt các thư viện Python cho Backend từ thư mục gốc
-WORKDIR /app
-RUN pip install --no-cache-dir -r backend/requirements.txt
-
-# 4. Cấp quyền thực thi cho cả 2 file script shell
-RUN chmod +x /app/solver/solve.sh
+# Phân quyền thực thi cho file shell script
 RUN chmod +x /app/solver/run_paris.sh
 
-# 5. Chạy Backend bằng cách gọi qua Module (-m), đứng ở vị trí thư mục gốc /app
-# Cách chạy này giúp Python tự hiểu và liên kết hoàn hảo giữa thư mục 'backend' và 'solver'
-CMD python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+# Cấu hình log không bị delay và phơi cổng PORT
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8080
 
-# Cấp quyền đọc/ghi/thực thi tối cao cho thư mục solver
-RUN chmod -R 777 /app/solver
+# Chạy backend trực tiếp qua main.py
+CMD ["python", "backend/main.py"]
