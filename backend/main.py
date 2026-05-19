@@ -36,26 +36,31 @@ def solve(req: SolveRequest):
     if len(req.nodes) > 50:
         return {"error": "Too large. Max 50 nodes."}
     
-    # Kiểm tra xem file .sh có tồn tại thật trong container Docker không
     if not os.path.exists(sh_script_path):
         return {"error": f"Không tìm thấy file run_paris.sh tại: {sh_script_path}"}
 
     try:
-        # Thay vì gọi qua cái module import bị lỗi, ta đấm trực tiếp bằng subprocess chuẩn Docker luôn
-        # Bác có thể truyền các biến req.nodes, req.edges... vào làm đối số của file .sh nếu cần nhé
         result = subprocess.run(
             ["bash", "run_paris.sh"], 
-            cwd=solver_dir,           # Ép Linux nhảy vào đúng thư mục solver để chạy
+            cwd=solver_dir,           
             capture_output=True,
             text=True,
-            check=True
+            check=False # 👈 ĐỔI THÀNH FALSE để không bị sập sập nguồn, ta chủ động bắt log
         )
-        # Bác dựa vào logic parse kết quả từ chuỗi trả về (stdout) của bác ở local để return ra nhé
-        # Ví dụ tạm thời trả về output dạng text:
+        
+        # Nếu bộ giải chạy có lỗi (stderr không rỗng), trả về lỗi đó luôn!
+        if result.stderr and "error" in result.stderr.lower():
+            return {
+                "status": "system_error", 
+                "stderr": result.stderr, 
+                "stdout": result.stdout
+            }
+            
+        # Nếu chạy thành công hoặc không có lỗi hệ thống, trả về stdout như cũ
         return {"status": "success", "result": result.stdout}
         
-    except subprocess.CalledProcessError as e:
-        return {"status": "error", "message": e.stderr}
+    except Exception as e:
+        return {"status": "crash", "message": str(e)}
 
 @app.get("/health")
 def health():
