@@ -1,0 +1,2 @@
+*.sh text eol=lf
+*.pddl text eol=lf
