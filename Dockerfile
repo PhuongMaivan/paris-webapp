@@ -1,28 +1,28 @@
-# Sử dụng ảnh Python tiêu chuẩn
 FROM python:3.10
 
-# Cài đặt công cụ giải nén unzip cho Linux
-RUN apt-get update && apt-get install -y unzip && rm -rf /var/lib/apt/lists/*
+# 1. Cài đặt các công cụ biên dịch C++ thiết yếu cho Linux
+RUN apt-get update && apt-get install -y \
+    g++ make cmake git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Thiết lập thư mục làm việc trong container
 WORKDIR /app
-
-# Copy file requirements và cài đặt thư viện Python trước
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy file nén solver và toàn bộ code vào
 COPY . .
 
-# Tiến hành giải nén file solver.zip đè thẳng vào container để giữ nguyên file chạy
-RUN unzip -o solver.zip -d . && rm solver.zip
+# 2. Biên dịch trực tiếp Fast Downward trên chính môi trường này
+WORKDIR /app/solver/fd
+RUN python3 build.py
 
-# Phân quyền thực thi cho file shell script và các công cụ thực thi
+# 3. Cài đặt các thư viện Python cho Backend từ thư mục gốc
+WORKDIR /app
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# 4. Cấp quyền thực thi cho cả 2 file script shell
+RUN chmod +x /app/solver/solve.sh
 RUN chmod +x /app/solver/run_paris.sh
 
-# Cấu hình log không bị delay và phơi cổng PORT
-ENV PYTHONUNBUFFERED=1
-EXPOSE 8080
+# 5. Chạy Backend bằng cách gọi qua Module (-m), đứng ở vị trí thư mục gốc /app
+# Cách chạy này giúp Python tự hiểu và liên kết hoàn hảo giữa thư mục 'backend' và 'solver'
+CMD python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 
-# Chạy backend trực tiếp qua main.py
-CMD ["python", "backend/main.py"]
+# Cấp quyền đọc/ghi/thực thi tối cao cho thư mục solver
+RUN chmod -R 777 /app/solver
