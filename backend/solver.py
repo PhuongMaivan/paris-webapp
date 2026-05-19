@@ -1,8 +1,6 @@
-import subprocess, os, hashlib, json
-from tracemalloc import start
-
-SOLVER_DIR = "/mnt/c/paris-webapp/solver"
-SOLVE_SH   = f"{SOLVER_DIR}/solve.sh"
+import json
+import hashlib
+from collections import deque
 
 def get_cache_key(nodes, edges, start, goal):
     data = json.dumps({
@@ -13,66 +11,73 @@ def get_cache_key(nodes, edges, start, goal):
     }, sort_keys=True)
     return hashlib.md5(data.encode()).hexdigest()
 
-def write_col(filepath, nodes, edges):
-    with open(filepath, "w") as f:
-        # Giữ nguyên len(nodes) và len(edges)
-        f.write(f"p edge {len(nodes)} {len(edges)}\n")
-        for a, b in edges:
-            # XÓA +1: Để nguyên a, b
-            f.write(f"e {a} {b}\n")
-
-def write_dat(filepath, start, goal):
-    with open(filepath, "w") as f:
-        # XÓA +1: Để nguyên n
-        f.write(" ".join(str(n) for n in start) + "\n")
-        f.write(" ".join(str(n) for n in goal) + "\n")
-
-# Trong solver.py (Backend FastAPI)
-
-def read_out(filepath):
-    if not os.path.exists(filepath):
-        return {"reachable": False, "sequence": []}
-    with open(filepath) as f:
-        lines = [l.strip() for l in f.readlines() if l.strip()]
-    
-    if not lines or lines[0].upper() == "NO":
-        return {"reachable": False, "sequence": []}
-
-    sequence = []
-    for line in lines[1:]:
-        # Lấy nguyên số từ file .out (0, 2, 1, 3...)
-        state = [int(x) for x in line.split() if x.isdigit()]
-        sequence.append(state)
-    
-    return {"reachable": True, "sequence": sequence}
-
 def run_paris(nodes, edges, start, goal, timeout=30):
-    # Tạo key để không bị trùng file khi nhiều người dùng cùng lúc
-    key = get_cache_key(nodes, edges, start, goal)
+    """
+    Thuật toán tìm kiếm không gian trạng thái (BFS) giải bài toán ISR thuần Python.
+    Bypass hoàn toàn Fast Downward để deploy lên Railway Free mượt mà 100%.
+    """
+    # 1. Chuẩn hóa dữ liệu đầu vào thành tập hợp (set) cố định để tra cứu nhanh
+    all_nodes = set(nodes)
+    start_state = tuple(sorted(start))
+    goal_state = set(goal)
     
-    # Tạo đường dẫn file tạm
-    col_path = f"/tmp/{key}.col"
-    dat_path = f"/tmp/{key}.dat"
-    out_path = f"/tmp/{key}.out"
-    
-    # Ghi dữ liệu ra file (Dùng các hàm đã sửa ở trên)
-    write_col(col_path, nodes, edges)
-    write_dat(dat_path, start, goal)
+    # Xây dựng danh sách kề để kiểm tra mối quan hệ (adj) giữa các đỉnh
+    adj = {v: set() for v in all_nodes}
+    for u, v in edges:
+        if u in adj and v in adj:
+            adj[u].add(v)
+            adj[v].add(u)
 
-    try:
-        # Log để kiểm tra trong Terminal
-        print(f"DEBUG - Running Solver for {len(nodes)} nodes")
-        
-        # Gọi solve.sh với 3 tham số: .col .dat và file .out kết quả
-        subprocess.run(
-            ["bash", SOLVE_SH, col_path, dat_path, out_path], 
-            timeout=timeout, 
-            check=False # Để nó không văng lỗi khi vô nghiệm (Exit code 12)
-        )
-        
-        # Đọc kết quả từ file .out
-        return read_out(out_path)
-        
-    except Exception as e:
-        print(f"ERROR: {str(e)}")
-        return {"reachable": False, "error": str(e)}
+    # 2. Thuật toán BFS tìm chuỗi cấu hình ngắn nhất
+    # Queue lưu: (trạng thái_hiện_tại, chuỗi_các_trạng_thái_đã_qua)
+    queue = deque([(start_state, [list(start_state)])])
+    
+    # Set đánh dấu các trạng thái đã duyệt qua tránh lặp vô hạn
+    visited = {start_state}
+    
+    import time
+    start_time = time.time()
+
+    while queue:
+        # Kiểm tra quá thời gian timeout đề phòng đồ thị quá lớn
+        if time.time() - start_time > timeout:
+            print("DEBUG SOLVER - Timeout reached!")
+            return {"reachable": False, "sequence": []}
+
+        curr_state, path = queue.popleft()
+        curr_set = set(curr_state)
+
+        # Nếu toàn bộ token đã khớp với mục tiêu (goal) -> Thành công!
+        if curr_set == goal_state:
+            return {"reachable": True, "sequence": path}
+
+        # Duyệt qua từng token hiện tại để tìm nước đi hợp lệ
+        for token_from in curr_state:
+            # Token này có thể nhảy đến bất kỳ vị trí trống nào không kề nó
+            for token_to in all_nodes:
+                # Điều kiện 1 & 2: Vị trí đích phải trống VÀ không được kề trực tiếp với vị trí xuất phát
+                if token_to in curr_set or token_to in adj[token_from]:
+                    continue
+                
+                # Điều kiện 3: Vị trí đích không được phép kề với bất kỳ vị trí có token nào khác (trừ chính nó)
+                has_neighbor_token = False
+                for neighbor in adj[token_to]:
+                    if neighbor in curr_set and neighbor != token_from:
+                        has_neighbor_token = True
+                        break
+                
+                if has_neighbor_token:
+                    continue
+
+                # Tạo trạng thái mới sau khi di chuyển token thành công
+                next_set = (curr_set - {token_from}) | {token_to}
+                next_state = tuple(sorted(next_set))
+
+                # Nếu trạng thái này chưa từng đi qua, lưu vào queue
+                if next_state not in visited:
+                    visited.add(next_state)
+                    new_path = path + [list(next_state)]
+                    queue.append((next_state, new_path))
+
+    # Duyệt hết không gian trạng thái mà không tìm thấy đường đi
+    return {"reachable": False, "sequence": []}
